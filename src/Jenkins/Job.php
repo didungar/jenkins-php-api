@@ -85,6 +85,11 @@ class Job
         return $this->job->url;
     }
 
+    public function getJobs() : array
+    {
+        return $this->job->jobs;
+    }
+
     /**
      * @return array
      */
