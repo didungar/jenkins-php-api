@@ -15,6 +15,15 @@ class Job
      * @var \stdClass
      */
     private $job;
+    /**
+     * @var array|null
+     */
+    private $jobs = null;
+
+    /**
+     * @var string
+     */
+    private $namePrefix = '';
 
     /**
      * @param \stdClass $job
@@ -85,9 +94,31 @@ class Job
         return $this->job->url;
     }
 
-    public function getJobs() : array
+    public function getJobs(): array
     {
-        return $this->job->jobs;
+        if (null === $this->jobs) {
+            $jobs = [];
+            foreach ($this->job->jobs as $job) {
+                $subJob = $this->jenkins->getJob($this->job->name . '/job/' . $job->name);
+                $subJob->setNamePrefix($this->job->name . '/job/');
+                $jobs[] = $subJob;
+            }
+            $this->jobs = $jobs;
+        }
+
+        return $this->jobs;
+    }
+
+    public function getNamePrefix(): string
+    {
+        return $this->namePrefix;
+    }
+
+    public function setNamePrefix(string $namePrefix): self
+    {
+        $this->namePrefix = $namePrefix;
+
+        return $this;
     }
 
     /**
@@ -159,11 +190,11 @@ class Job
      */
     public function getLastSuccessfulBuild()
     {
-        if (null === $this->job->lastSuccessfulBuild) {
+        if (!isset($this->job->lastSuccessfulBuild) || null === $this->job->lastSuccessfulBuild) {
             return null;
         }
 
-        return $this->getJenkins()->getBuild($this->getName(), $this->job->lastSuccessfulBuild->number);
+        return $this->jenkins->getBuild($this->namePrefix . $this->job->name, $this->job->lastSuccessfulBuild->number);
     }
 
     /**
