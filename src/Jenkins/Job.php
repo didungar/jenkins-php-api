@@ -185,6 +185,15 @@ class Job
         return $this->getJenkins()->retrieveXmlConfigAsString($this->getName());
     }
 
+    public function getLastBuildRevision(): ?\stdClass
+    {
+        $lastSuccessFulBuild = $this->getLastSuccessfulBuild();
+        if (!$lastSuccessFulBuild) {
+            return null;
+        }
+        return $lastSuccessFulBuild->getLastBuildRevision();
+    }
+
     /**
      * @return Build|null
      */

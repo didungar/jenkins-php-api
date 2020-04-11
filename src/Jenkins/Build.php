@@ -103,20 +103,42 @@ class Build
         return $this->build->number;
     }
 
-    public function getCauseAction(): ?\stdClass
+    public function getBuildData(): ?\stdClass
+    {
+        return $this->findActionByClass('hudson.plugins.git.util.BuildData');
+    }
+    public function getLastBuildRevision(): ?\stdClass
+    {
+        $branch = $this->findActionByClass('hudson.plugins.git.util.BuildData');
+        if ($branch) {
+            return $branch->lastBuiltRevision;
+        }
+        return null;
+    }
+
+    protected function findActionByClass(string $class)
     {
         foreach ($this->getActions() as $action) {
-            if ("hudson.model.CauseAction" == $action->_class) {
+            if (!isset($action->_class)) {
+                continue;
+            }
+            if ($class === $action->_class) {
                 return $action;
             }
         }
 
         return null;
     }
+
+    public function getActions(): array
+    {
+        return $this->build->actions;
+    }
+
     public function getCauseActionUseridCause(): ?\stdClass
     {
         $action = $this->getCauseAction();
-        if (! $action) {
+        if (!$action) {
             return null;
         }
         foreach ($action->causes as $cause) {
@@ -128,10 +150,15 @@ class Build
         return null;
     }
 
+    public function getCauseAction(): ?\stdClass
+    {
+        return $this->findActionByClass('hudson.model.CauseAction');
+    }
+
     public function getCauseActionTimerTriggerCause(): ?\stdClass
     {
         $action = $this->getCauseAction();
-        if (! $action) {
+        if (!$action) {
             return null;
         }
         foreach ($action->causes as $cause) {
@@ -141,11 +168,6 @@ class Build
         }
 
         return null;
-    }
-
-    public function getActions(): array
-    {
-        return $this->build->actions;
     }
 
     /**
