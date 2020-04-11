@@ -103,17 +103,19 @@ class Build
         return $this->build->number;
     }
 
+    public function getLastBuildRevision(): ?\stdClass
+    {
+        $buildData = $this->getBuildData();
+        if ($buildData) {
+            return $buildData->lastBuiltRevision;
+        }
+
+        return null;
+    }
+
     public function getBuildData(): ?\stdClass
     {
         return $this->findActionByClass('hudson.plugins.git.util.BuildData');
-    }
-    public function getLastBuildRevision(): ?\stdClass
-    {
-        $branch = $this->findActionByClass('hudson.plugins.git.util.BuildData');
-        if ($branch) {
-            return $branch->lastBuiltRevision;
-        }
-        return null;
     }
 
     protected function findActionByClass(string $class)
@@ -133,6 +135,22 @@ class Build
     public function getActions(): array
     {
         return $this->build->actions;
+    }
+
+    /**
+     * @return array|null If no BuildData ot nor set remoteUrls return null, else return an array
+     */
+    public function getLastRemoteUrls(): ?array
+    {
+        $buildData = $this->getBuildData();
+        if (empty($buildData)) {
+            return null;
+        }
+        if (!isset($buildData->remoteUrls)) {
+            return null;
+        }
+
+        return $buildData->remoteUrls;
     }
 
     public function getCauseActionUseridCause(): ?\stdClass
@@ -311,16 +329,17 @@ class Build
         return $this->build->url;
     }
 
-    public function getTimestamp() :float
+    public function getTimestamp(): float
     {
         //division par 1000 => pas de millisecondes
         return (float)($this->build->timestamp / 1000);
     }
 
-    public function getDateTime() : \DateTime
+    public function getDateTime(): \DateTime
     {
         $when = new \DateTime();
         $when->setTimestamp($this->getTimestamp());
+
         return $when;
     }
 
