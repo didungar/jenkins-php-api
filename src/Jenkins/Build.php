@@ -311,13 +311,17 @@ class Build
         return $this->build->url;
     }
 
-    /**
-     * @return int
-     */
-    public function getTimestamp()
+    public function getTimestamp() :float
     {
         //division par 1000 => pas de millisecondes
-        return $this->build->timestamp / 1000;
+        return (float)($this->build->timestamp / 1000);
+    }
+
+    public function getDateTime() : \DateTime
+    {
+        $when = new \DateTime();
+        $when->setTimestamp($this->getTimestamp());
+        return $when;
     }
 
     public function getBuiltOn()
