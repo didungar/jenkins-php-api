@@ -38,15 +38,28 @@ class Build
     const ABORTED = 'ABORTED';
 
     /**
+     * @var string
+     */
+    const API_ARG_PRETTY = 'pretty=true';
+
+    /**
+     * @var array
+     */
+    const API_ARGS_FULL = [self::API_ARG_PRETTY];
+
+    /**
+     * @var string
+     */
+    const API_ARG_TREE_SMALL = 'tree=actions[parameters,parameters[name,value]],result,duration,timestamp,number,url,estimatedDuration,builtOn';
+
+    /**
      * @var \stdClass
      */
     private $build;
-
     /**
      * @var Jenkins
      */
     private $jenkins;
-
 
     /**
      * @param \stdClass $build
@@ -63,28 +76,18 @@ class Build
      */
     public function getInputParameters()
     {
-        $parameters = array();
+        $parameters = [];
 
         if (!property_exists($this->build->actions[0], 'parameters')) {
             return $parameters;
         }
 
         foreach ($this->build->actions[0]->parameters as $parameter) {
-            $parameters[$parameter->name] = $parameter->value;
+            $parameters[ $parameter->name ] = $parameter->value;
         }
 
         return $parameters;
     }
-
-    /**
-     * @return int
-     */
-    public function getTimestamp()
-    {
-        //division par 1000 => pas de millisecondes
-        return $this->build->timestamp / 1000;
-    }
-
 
     /**
      * @return int
@@ -95,25 +98,73 @@ class Build
         return $this->build->duration / 1000;
     }
 
-    /**
-     * @return int
-     */
-    public function getNumber()
+    public function getNumber(): int
     {
         return $this->build->number;
     }
 
-    /**
-     * @return null|int
-     */
-    public function getProgress()
+    public function getCauseAction(): ?\stdClass
     {
-        $progress = null;
-        if (null !== ($executor = $this->getExecutor())) {
-            $progress = $executor->getProgress();
+        foreach ($this->getActions() as $action) {
+            if ("hudson.model.CauseAction" == $action->_class) {
+                return $action;
+            }
         }
 
-        return $progress;
+        return null;
+    }
+    public function getCauseActionUseridCause(): ?\stdClass
+    {
+        $action = $this->getCauseAction();
+        if (! $action) {
+            return null;
+        }
+        foreach ($action->causes as $cause) {
+            if ('hudson.model.Cause$UserIdCause' == $cause->_class) {
+                return $cause;
+            }
+        }
+
+        return null;
+    }
+
+    public function getCauseActionTimerTriggerCause(): ?\stdClass
+    {
+        $action = $this->getCauseAction();
+        if (! $action) {
+            return null;
+        }
+        foreach ($action->causes as $cause) {
+            if ('hudson.triggers.TimerTrigger$TimerTriggerCause' == $cause->_class) {
+                return $cause;
+            }
+        }
+
+        return null;
+    }
+
+    public function getActions(): array
+    {
+        return $this->build->actions;
+    }
+
+    /**
+     * Returns remaining execution time (seconds)
+     *
+     * @return int|null
+     */
+    public function getRemainingExecutionTime()
+    {
+        $remaining = null;
+        if (null !== ($estimatedDuration = $this->getEstimatedDuration())) {
+            //be carefull because time from JK server could be different
+            //of time from Jenkins server
+            //but i didn't find a timestamp given by Jenkins api
+
+            $remaining = $estimatedDuration - (time() - $this->getTimestamp());
+        }
+
+        return max(0, $remaining);
     }
 
     /**
@@ -138,24 +189,46 @@ class Build
         return $duration;
     }
 
-
     /**
-     * Returns remaining execution time (seconds)
-     *
-     * @return int|null
+     * @return null|int
      */
-    public function getRemainingExecutionTime()
+    public function getProgress()
     {
-        $remaining = null;
-        if (null !== ($estimatedDuration = $this->getEstimatedDuration())) {
-            //be carefull because time from JK server could be different
-            //of time from Jenkins server
-            //but i didn't find a timestamp given by Jenkins api
-
-            $remaining = $estimatedDuration - (time() - $this->getTimestamp());
+        $progress = null;
+        if (null !== ($executor = $this->getExecutor())) {
+            $progress = $executor->getProgress();
         }
 
-        return max(0, $remaining);
+        return $progress;
+    }
+
+    /**
+     * @return Executor|null
+     */
+    public function getExecutor()
+    {
+        if (!$this->isRunning()) {
+            return null;
+        }
+
+        $runExecutor = null;
+        foreach ($this->getJenkins()->getExecutors() as $executor) {
+            /** @var Executor $executor */
+
+            if ($this->getUrl() === $executor->getBuildUrl()) {
+                $runExecutor = $executor;
+            }
+        }
+
+        return $runExecutor;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isRunning()
+    {
+        return Build::RUNNING === $this->getResult();
     }
 
     /**
@@ -189,43 +262,6 @@ class Build
     }
 
     /**
-     * @return string
-     */
-    public function getUrl()
-    {
-        return $this->build->url;
-    }
-
-    /**
-     * @return Executor|null
-     */
-    public function getExecutor()
-    {
-        if (!$this->isRunning()) {
-            return null;
-        }
-
-        $runExecutor = null;
-        foreach ($this->getJenkins()->getExecutors() as $executor) {
-            /** @var Executor $executor */
-
-            if ($this->getUrl() === $executor->getBuildUrl()) {
-                $runExecutor = $executor;
-            }
-        }
-
-        return $runExecutor;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isRunning()
-    {
-        return Build::RUNNING === $this->getResult();
-    }
-
-    /**
      * @return Jenkins
      */
     public function getJenkins()
@@ -243,6 +279,23 @@ class Build
         $this->jenkins = $jenkins;
 
         return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getUrl()
+    {
+        return $this->build->url;
+    }
+
+    /**
+     * @return int
+     */
+    public function getTimestamp()
+    {
+        //division par 1000 => pas de millisecondes
+        return $this->build->timestamp / 1000;
     }
 
     public function getBuiltOn()

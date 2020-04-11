@@ -182,19 +182,24 @@ class Job
      */
     public function retrieveXmlConfigAsString()
     {
-        return $this->jenkins->retrieveXmlConfigAsString($this->getName());
+        return $this->getJenkins()->retrieveXmlConfigAsString($this->getName());
     }
 
     /**
      * @return Build|null
      */
-    public function getLastSuccessfulBuild()
+    public function getLastSuccessfulBuild(): ?Build
     {
         if (!isset($this->job->lastSuccessfulBuild) || null === $this->job->lastSuccessfulBuild) {
             return null;
         }
 
-        return $this->jenkins->getBuild($this->namePrefix . $this->job->name, $this->job->lastSuccessfulBuild->number);
+        return $this->getBuildByNumber($this->job->lastSuccessfulBuild->number);
+    }
+
+    protected function getBuildByNumber(int $number)
+    {
+        return $this->getJenkins()->getBuild($this->namePrefix . $this->job->name, $number);
     }
 
     /**
@@ -206,6 +211,6 @@ class Job
             return null;
         }
 
-        return $this->getJenkins()->getBuild($this->getName(), $this->job->lastBuild->number);
+        return $this->getBuildByNumber($this->job->lastBuild->number);
     }
 }
